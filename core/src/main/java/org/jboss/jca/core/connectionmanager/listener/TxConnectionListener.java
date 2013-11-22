@@ -34,6 +34,8 @@ import org.jboss.jca.core.connectionmanager.tx.TxConnectionManagerImpl;
 import org.jboss.jca.core.spi.transaction.TxUtils;
 import org.jboss.jca.core.spi.transaction.local.LocalXAResource;
 
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
@@ -68,7 +70,10 @@ public class TxConnectionListener extends AbstractConnectionListener
    
    /** The bundle */
    private static CoreBundle bundle = Messages.getBundle(CoreBundle.class);
-   
+
+   /** Performance optimization: disable enlistment trace */
+   private static boolean disableEnlistmentTrace = false;
+
    /**Transaction synch. instance*/
    private TransactionSynchronization transactionSynchronization;
 
@@ -80,6 +85,34 @@ public class TxConnectionListener extends AbstractConnectionListener
 
    /** Whether there is a local transaction */
    private final AtomicBoolean localTransaction = new AtomicBoolean(false);
+
+   // Set the value of disableEnlistmentTrace based on the system property 'ironjacamar.disable_enlistment_trace'
+   static
+   {
+      final String propertyName = "ironjacamar.disable_enlistment_trace";
+
+      String value = AccessController.doPrivileged(new PrivilegedAction<String>()
+      {
+         public String run()
+         {
+            return System.getProperty(propertyName);
+         }
+      });
+
+      if (value != null)
+      {
+         value = value.trim();
+         if (value.equals(""))
+         {
+            disableEnlistmentTrace = true;
+         }
+         else
+         {
+            disableEnlistmentTrace = Boolean.valueOf(value);
+         }
+         log.debug("Set property " + propertyName + ": " + disableEnlistmentTrace);
+      }
+   }
 
    /**
     * Creates a new tx listener.
@@ -708,8 +741,7 @@ public class TxConnectionListener extends AbstractConnectionListener
    public class TransactionSynchronization implements Synchronization
    {
       /**Error message*/
-      private final Throwable failedToEnlist =
-         new Throwable("Unabled to enlist resource, see the previous warnings.");
+      private final Throwable failedToEnlist;
 
       /** Transaction */
       protected final Transaction currentTx;
@@ -739,6 +771,15 @@ public class TxConnectionListener extends AbstractConnectionListener
          this.enlisted = false;
          this.enlistError = null;
          this.cancel = false;
+
+         if (disableEnlistmentTrace)
+         {
+            this.failedToEnlist = null;
+         }
+         else
+         {
+            this.failedToEnlist = new Throwable("Unable to enlist resource, see the previous warnings.");
+         }
       }
 
       /**
@@ -805,7 +846,14 @@ public class TxConnectionListener extends AbstractConnectionListener
             XAResource resource = getXAResource();
             if (!currentTx.enlistResource(resource))
             {
-               enlistError = failedToEnlist;
+               if (disableEnlistmentTrace)
+               {
+                   enlistError = new Throwable("Unable to enlist resource, see the previous warnings.");
+               }
+               else
+               {
+                   enlistError = failedToEnlist;
+               }
             }
          }
          catch (Throwable t)

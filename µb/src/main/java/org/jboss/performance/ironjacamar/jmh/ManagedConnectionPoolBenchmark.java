@@ -23,8 +23,10 @@ import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.transaction.UserTransaction;
+import java.io.InputStream;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.LogManager;
 
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -40,25 +42,30 @@ public class ManagedConnectionPoolBenchmark {
 
         @Setup
         public void setupEmbedded() throws Throwable {
-            embedded = EmbeddedFactory.create(true);
+            embedded = EmbeddedFactory.create(false);
             embedded.startup();
 
-            raa = createRar(name);
-            embedded.deploy(raa);
+            embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-naming.xml"));
+            embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-transaction.xml"));
+            embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-stdio.xml"));
+            embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-jca.xml"));
+            embedded.deploy(createRaa(name));
 
-            System.out.println("setupEmbedded()");
-            //InputStream is = ManagedConnectionPoolBenchmark.class.getClassLoader().getResourceAsStream("logging.properties");
-            //LogManager.getLogManager().readConfiguration(is);
+            InputStream is = ManagedConnectionPoolBenchmark.class.getClassLoader().getResourceAsStream("logging.properties");
+            LogManager.getLogManager().readConfiguration(is);
         }
 
         @TearDown
         public void tearDownEmbedded() throws Throwable {
 
-            //LogManager.getLogManager().readConfiguration();
-
-            System.out.println("tearDownEmbedded()");
+            LogManager.getLogManager().readConfiguration();
 
             embedded.undeploy(raa);
+
+            embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-jca.xml"));
+            embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-stdio.xml"));
+            embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-transaction.xml"));
+            embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-naming.xml"));
 
             embedded.shutdown();
             embedded = null;
@@ -66,15 +73,13 @@ public class ManagedConnectionPoolBenchmark {
             name = UUID.randomUUID().toString();
         }
 
-        private ResourceAdapterArchive createRar(String name) throws Throwable {
-            ResourceAdapterArchive raa = ShrinkWrap.create(ResourceAdapterArchive.class, name + ".rar");
-
+        private ResourceAdapterArchive createRaa(String name) throws Throwable {
             JavaArchive ja = ShrinkWrap.create(JavaArchive.class, UUID.randomUUID().toString() + ".jar");
             ja.addPackage(DummyConnection.class.getPackage());
 
+            raa = ShrinkWrap.create(ResourceAdapterArchive.class, name + ".rar");
             raa.addAsLibrary(ja);
             raa.addAsManifestResource("dummy-ra.xml", "ra.xml");
-
             return raa;
         }
     }
@@ -92,12 +97,10 @@ public class ManagedConnectionPoolBenchmark {
             context = new InitialContext();
             ut = (UserTransaction) context.lookup("java:/UserTransaction");
             dcf = (DummyConnectionFactory) context.lookup(JNDI_PREFIX + state.name);
-            // System.out.println("setupContext() " + state.name);
         }
 
         @TearDown
         public void tearDownContext() {
-            // System.out.println("tearDownContext()");
             if (context != null) {
                 try {
                     context.close();
@@ -134,7 +137,6 @@ public class ManagedConnectionPoolBenchmark {
             }
         } catch (Throwable t) {
             t.printStackTrace();
-        } finally {
         }
     }
 

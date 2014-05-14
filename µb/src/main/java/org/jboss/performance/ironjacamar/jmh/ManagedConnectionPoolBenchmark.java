@@ -24,6 +24,7 @@ import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.transaction.UserTransaction;
 import java.io.InputStream;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.LogManager;
@@ -36,41 +37,33 @@ public class ManagedConnectionPoolBenchmark {
 
     @State(Scope.Benchmark)
     public static class BenchmarkState {
-        String name = UUID.randomUUID().toString();
+        Random random = new Random();
+        String name;
         Embedded embedded;
         ResourceAdapterArchive raa;
 
         @Setup
         public void setupEmbedded() throws Throwable {
+            name = UUID.randomUUID().toString();
+
             embedded = EmbeddedFactory.create(false);
             embedded.startup();
-
             embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-naming.xml"));
             embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-transaction.xml"));
             embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-stdio.xml"));
             embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-jca.xml"));
             embedded.deploy(createRaa(name));
-
-            InputStream is = ManagedConnectionPoolBenchmark.class.getClassLoader().getResourceAsStream("logging.properties");
-            LogManager.getLogManager().readConfiguration(is);
         }
 
         @TearDown
         public void tearDownEmbedded() throws Throwable {
-
-            LogManager.getLogManager().readConfiguration();
-
             embedded.undeploy(raa);
-
             embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-jca.xml"));
             embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-stdio.xml"));
             embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-transaction.xml"));
             embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-naming.xml"));
-
             embedded.shutdown();
             embedded = null;
-
-            name = UUID.randomUUID().toString();
         }
 
         private ResourceAdapterArchive createRaa(String name) throws Throwable {
@@ -86,6 +79,8 @@ public class ManagedConnectionPoolBenchmark {
 
     @State(Scope.Thread)
     public static class ThreadState {
+        Random random;
+
         Context context;
 
         UserTransaction ut;
@@ -94,6 +89,7 @@ public class ManagedConnectionPoolBenchmark {
 
         @Setup
         public void setupContext(BenchmarkState state) throws Throwable {
+            random = new Random(state.random.nextLong());
             context = new InitialContext();
             ut = (UserTransaction) context.lookup("java:/UserTransaction");
             dcf = (DummyConnectionFactory) context.lookup(JNDI_PREFIX + state.name);
@@ -116,27 +112,34 @@ public class ManagedConnectionPoolBenchmark {
     @Group
     public void testMethod(ThreadState state) {
          try{
-            if (state.ut != null) {
+             if (state.ut != null) {
                 state.ut.begin();
-            }
+             }
 
-            DummyConnection tc = state.dcf.getConnection();
+             DummyConnection dc = state.dcf.getConnection();
 
-            // Wait some time
-            Thread.sleep(100);
+             // Wait some time
+             Thread.sleep(state.random.nextInt(10));
 
-            // So something
-            BlackHole.consumeCPU(1000 * 1000);
+             // Do some work
+             BlackHole.consumeCPU(state.random.nextInt(1000));
 
-            tc.callMe();
+             dc.callMe();
 
-            tc.close();
+             dc.close();
 
-            if (state.ut != null) {
-                state.ut.commit();
-            }
+             if (state.ut != null) {
+                 state.ut.commit();
+             }
         } catch (Throwable t) {
-            t.printStackTrace();
+             t.printStackTrace();
+             try {
+                 if (state.ut != null) {
+                     state.ut.rollback();
+                 }
+             } catch (Throwable tr) {
+                 tr.printStackTrace();
+             }
         }
     }
 

@@ -118,11 +118,17 @@ public class ManagedConnectionPoolBenchmark {
 
              DummyConnection dc = state.dcf.getConnection();
 
+             // Do some work
+             BlackHole.consumeCPU(state.random.nextInt());
+
+             // Yeld !
+             Thread.yield();
+
              // Wait some time
-             Thread.sleep(state.random.nextInt(10));
+             //Thread.sleep(state.random.nextInt(10));
 
              // Do some work
-             BlackHole.consumeCPU(state.random.nextInt(1000));
+             BlackHole.consumeCPU(state.random.nextInt());
 
              dc.callMe();
 

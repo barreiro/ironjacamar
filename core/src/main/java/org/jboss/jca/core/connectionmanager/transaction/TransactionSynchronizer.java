@@ -199,7 +199,7 @@ public class TransactionSynchronizer implements Synchronization
       Record record = records.get(tx);
       if (record == null)
       {
-         Record newRecord = new Record(new ReentrantLock(true), new TransactionSynchronizer(tx));
+         Record newRecord = new Record(new ReentrantLock(), new TransactionSynchronizer(tx));
          record = records.putIfAbsent(tx, newRecord);
          if (record == null)
          {
@@ -289,7 +289,7 @@ public class TransactionSynchronizer implements Synchronization
       Record record = records.get(tx);
       if (record == null)
       {
-         Record newRecord = new Record(new ReentrantLock(true), new TransactionSynchronizer(tx));
+         Record newRecord = new Record(new ReentrantLock(), new TransactionSynchronizer(tx));
          record = records.putIfAbsent(tx, newRecord);
          if (record == null)
          {

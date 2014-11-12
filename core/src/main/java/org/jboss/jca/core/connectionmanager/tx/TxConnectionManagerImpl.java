@@ -434,7 +434,7 @@ public class TxConnectionManagerImpl extends AbstractConnectionManager implement
       {
          if (transactionSynchronizationRegistry.getResource(LockKey.INSTANCE) == null)
          {
-            Lock lock = new ReentrantLock(true);
+            Lock lock = new ReentrantLock();
             transactionSynchronizationRegistry.putResource(LockKey.INSTANCE, lock);
             return lock;
          }

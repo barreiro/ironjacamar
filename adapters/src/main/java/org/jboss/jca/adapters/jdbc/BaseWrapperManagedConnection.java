@@ -90,7 +90,7 @@ public abstract class BaseWrapperManagedConnection implements ManagedConnection,
 
    private final boolean readOnly;
 
-   private ReentrantLock lock = new ReentrantLock(true);
+   private ReentrantLock lock = new ReentrantLock(false);
 
    private final Collection<ConnectionEventListener> cels = new ArrayList<ConnectionEventListener>();
 

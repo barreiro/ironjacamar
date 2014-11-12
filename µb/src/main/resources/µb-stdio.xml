@@ -3,14 +3,14 @@
   <bean name="JBossStdioSystemOutStream" class="org.jboss.stdio.LoggingOutputStream">
     <constructor>
       <parameter>STDOUT</parameter>
-      <parameter>INFO</parameter>
+      <parameter>ERROR</parameter>
     </constructor>
   </bean>
 
   <bean name="JBossStdioSystemErrStream" class="org.jboss.stdio.LoggingOutputStream">
     <constructor>
       <parameter>STDERR</parameter>
-      <parameter>INFO</parameter>
+      <parameter>ERROR</parameter>
     </constructor>
   </bean>
 

@@ -17,17 +17,24 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
-import org.openjdk.jmh.logic.BlackHole;
+import org.openjdk.jmh.logic.results.RunResult;
+import org.openjdk.jmh.runner.BenchmarkRecord;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.RunnerException;
+import org.openjdk.jmh.runner.options.Options;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
+import org.openjdk.jmh.runner.options.VerboseMode;
+import org.openjdk.jmh.runner.parameters.TimeValue;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.transaction.UserTransaction;
-import java.io.InputStream;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.LogManager;
+
 
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -119,18 +126,16 @@ public class ManagedConnectionPoolBenchmark {
              DummyConnection dc = state.dcf.getConnection();
 
              // Do some work
-             BlackHole.consumeCPU(state.random.nextInt());
+             dc.doWork(false, state.random.nextInt());
 
-             // Yeld !
-             Thread.yield();
+             // Yeld!
+             dc.doYeld(true);
 
-             // Wait some time
-             //Thread.sleep(state.random.nextInt(10));
+             // Wait some time (10ms average)
+             dc.doSleep(true, state.random.nextInt(20));
 
              // Do some work
-             BlackHole.consumeCPU(state.random.nextInt());
-
-             dc.callMe();
+             dc.doWork(false, state.random.nextInt());
 
              dc.close();
 
@@ -138,14 +143,34 @@ public class ManagedConnectionPoolBenchmark {
                  state.ut.commit();
              }
         } catch (Throwable t) {
-             t.printStackTrace();
+             // t.printStackTrace();
              try {
                  if (state.ut != null) {
                      state.ut.rollback();
                  }
              } catch (Throwable tr) {
-                 tr.printStackTrace();
+                 System.out.println("tr.getMessage() = " + tr.getMessage());
              }
+        }
+    }
+
+    // For running from IDE (Not working yet!)
+    public static void main(String[] args) throws RunnerException {
+        Options baseOpts = new OptionsBuilder()
+                .warmupTime(TimeValue.seconds(1))
+                .measurementTime(TimeValue.seconds(10))
+                .warmupIterations(10)
+                .measurementIterations(10)
+                .forks(0)
+                .threads(50)
+                .jvmArgs("-Dironjacamar.mcp=org.jboss.jca.core.connectionmanager.pool.mcp.SemaphoreConcurrentLinkedQueueManagedConnectionPool")
+                .verbosity(VerboseMode.EXTRA)
+                .build();
+
+        Map<BenchmarkRecord, RunResult> runnerResults = new Runner(baseOpts).run();
+
+        for (Map.Entry<BenchmarkRecord, RunResult> entry : runnerResults.entrySet()) {
+            System.out.printf("Record = %s Result = %s\n", entry.getKey(), entry.getValue());
         }
     }
 

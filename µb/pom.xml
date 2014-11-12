@@ -18,30 +18,30 @@
         <dependency>
             <groupId>org.jboss.ironjacamar</groupId>
             <artifactId>ironjacamar-embedded</artifactId>
-            <version>1.0.26.Final</version>
+            <version>1.0.29.Final</version>
         </dependency>
         <dependency>
             <groupId>org.jboss.ironjacamar</groupId>
             <artifactId>ironjacamar-core-impl</artifactId>
-            <version>1.0.26.Final</version>
+            <version>1.0.29.Final</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.jboss.ironjacamar</groupId>
             <artifactId>ironjacamar-common-impl-papaki</artifactId>
-            <version>1.0.26.Final</version>
+            <version>1.0.29.Final</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.jboss.ironjacamar</groupId>
             <artifactId>ironjacamar-deployers-common</artifactId>
-            <version>1.0.26.Final</version>
+            <version>1.0.29.Final</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.jboss.ironjacamar</groupId>
             <artifactId>ironjacamar-deployers-fungal</artifactId>
-            <version>1.0.26.Final</version>
+            <version>1.0.29.Final</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>

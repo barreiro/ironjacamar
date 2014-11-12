@@ -1,5 +1,7 @@
 package org.jboss.performance.ironjacamar.jmh.ra.dummy;
 
+import org.openjdk.jmh.logic.BlackHole;
+
 public class DummyConnectionImpl implements DummyConnection {
 
    private DummyManagedConnection mc;
@@ -11,7 +13,29 @@ public class DummyConnectionImpl implements DummyConnection {
       this.mcf = mcf;
    }
 
-   public void callMe() {
+   @Override
+   public void doWork(boolean b, long amount) {
+      if (b) {
+         BlackHole.consumeCPU(amount);
+      }
+      mc.callMe();
+   }
+
+   @Override
+   public void doSleep(boolean b, long amount) {
+      if (b) {
+         try {
+            Thread.sleep(amount);
+         } catch (InterruptedException e) {
+            e.printStackTrace();
+         }
+      }
+      mc.callMe();
+   }
+
+   @Override
+   public void doYeld(boolean b) {
+      Thread.yield();
       mc.callMe();
    }
 

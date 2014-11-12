@@ -157,7 +157,7 @@ public class SemaphoreConcurrentLinkedQueueManagedConnectionPool implements Mana
       this.cls = new ConcurrentHashMap<ConnectionListener, ConnectionListenerWrapper>();
       this.statistics = new ManagedConnectionPoolStatisticsImpl(maxSize);
       this.statistics.setEnabled(p.getStatistics().isEnabled());
-      this.permits = new Semaphore(maxSize, true, statistics);
+      this.permits = new Semaphore(maxSize, false, statistics);
       this.poolSize.set(0);
       this.checkedOutSize.set(0);
 

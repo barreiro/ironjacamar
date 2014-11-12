@@ -88,7 +88,7 @@ public class IdleRemover
       this.interval = Long.MAX_VALUE;
       this.next = Long.MAX_VALUE;
       this.shutdown = new AtomicBoolean(false);
-      this.lock = new ReentrantLock(true);
+      this.lock = new ReentrantLock();
       this.condition = lock.newCondition();
    }
 

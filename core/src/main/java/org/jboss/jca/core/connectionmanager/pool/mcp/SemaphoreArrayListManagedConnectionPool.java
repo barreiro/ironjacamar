@@ -152,7 +152,7 @@ public class SemaphoreArrayListManagedConnectionPool implements ManagedConnectio
       this.cls = new ArrayList<ConnectionListener>(this.maxSize);
       this.statistics = new ManagedConnectionPoolStatisticsImpl(maxSize);
       this.statistics.setEnabled(p.getStatistics().isEnabled());
-      this.permits = new Semaphore(maxSize, true, statistics);
+      this.permits = new Semaphore(maxSize, false, statistics);
 
       // Schedule managed connection pool for prefill
       if ((pc.isPrefill() || pc.isStrictMin()) && p instanceof PrefillPool && pc.getMinSize() > 0)

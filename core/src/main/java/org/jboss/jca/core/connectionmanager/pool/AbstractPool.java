@@ -262,7 +262,7 @@ public abstract class AbstractPool implements Pool
          Lock lock = (Lock)tsr.getResource(LockKey.INSTANCE);
          if (lock == null)
          {
-            lock = new ReentrantLock(true);
+            lock = new ReentrantLock();
             tsr.putResource(LockKey.INSTANCE, lock);
             return lock;
          }

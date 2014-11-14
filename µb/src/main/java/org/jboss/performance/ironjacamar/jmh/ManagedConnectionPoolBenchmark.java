@@ -18,21 +18,23 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.logic.results.RunResult;
+import org.openjdk.jmh.output.format.TextReportFormat;
+import org.openjdk.jmh.output.results.ResultFormat;
+import org.openjdk.jmh.output.results.ResultFormatFactory;
 import org.openjdk.jmh.runner.BenchmarkRecord;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
+import org.openjdk.jmh.runner.parameters.Defaults;
 import org.openjdk.jmh.runner.parameters.TimeValue;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.transaction.UserTransaction;
-import java.util.Map;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 
@@ -40,46 +42,47 @@ import java.util.concurrent.TimeUnit;
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class ManagedConnectionPoolBenchmark {
 
-    private static final String JNDI_PREFIX = "java:/eis/";
-
     @State(Scope.Benchmark)
     public static class BenchmarkState {
-        Random random = new Random();
-        String name;
-        Embedded embedded;
-        ResourceAdapterArchive raa;
+        private static final Random RANDOM = new Random();
+        private static final String NAME = UUID.randomUUID().toString();
+        private static volatile Embedded embedded = null;
+        private static ResourceAdapterArchive raa = createRaa(NAME);
 
         @Setup
-        public void setupEmbedded() throws Throwable {
-            name = UUID.randomUUID().toString();
-
-            embedded = EmbeddedFactory.create(false);
-            embedded.startup();
-            embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-naming.xml"));
-            embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-transaction.xml"));
-            embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-stdio.xml"));
-            embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-jca.xml"));
-            embedded.deploy(createRaa(name));
+        public static synchronized void setupEmbedded() throws Throwable {
+            if (embedded == null) {
+                embedded = EmbeddedFactory.create(false);
+                embedded.startup();
+                embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-naming.xml"));
+                embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-transaction.xml"));
+                embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-stdio.xml"));
+                embedded.deploy(Thread.currentThread().getContextClassLoader().getResource("µb-jca.xml"));
+                embedded.deploy(raa);
+            }
         }
 
         @TearDown
-        public void tearDownEmbedded() throws Throwable {
-            embedded.undeploy(raa);
-            embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-jca.xml"));
-            embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-stdio.xml"));
-            embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-transaction.xml"));
-            embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-naming.xml"));
-            embedded.shutdown();
-            embedded = null;
+        public static synchronized void tearDownEmbedded() throws Throwable {
+            if (embedded != null) {
+                embedded.undeploy(raa);
+                embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-jca.xml"));
+                embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-stdio.xml"));
+                embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-transaction.xml"));
+                embedded.undeploy(Thread.currentThread().getContextClassLoader().getResource("µb-naming.xml"));
+                embedded.shutdown();
+                embedded = null;
+            }
         }
 
-        private ResourceAdapterArchive createRaa(String name) throws Throwable {
+        private static ResourceAdapterArchive createRaa(String name) {
             JavaArchive ja = ShrinkWrap.create(JavaArchive.class, UUID.randomUUID().toString() + ".jar");
             ja.addPackage(DummyConnection.class.getPackage());
 
             raa = ShrinkWrap.create(ResourceAdapterArchive.class, name + ".rar");
             raa.addAsLibrary(ja);
-            raa.addAsManifestResource("dummy-ra.xml", "ra.xml");
+            raa.addAsManifestResource("µb-dummy-ra.xml", "ra.xml");
+            raa.addAsManifestResource("µb-ironjacamar.xml", "ironjacamar.xml");
             return raa;
         }
     }
@@ -90,16 +93,16 @@ public class ManagedConnectionPoolBenchmark {
 
         Context context;
 
-        UserTransaction ut;
+        UserTransaction transaction;
 
-        DummyConnectionFactory dcf;
+        DummyConnectionFactory dummy;
 
         @Setup
         public void setupContext(BenchmarkState state) throws Throwable {
-            random = new Random(state.random.nextLong());
+            random = new Random(state.RANDOM.nextLong());
             context = new InitialContext();
-            ut = (UserTransaction) context.lookup("java:/UserTransaction");
-            dcf = (DummyConnectionFactory) context.lookup(JNDI_PREFIX + state.name);
+            transaction = (UserTransaction) context.lookup("java:/UserTransaction");
+            dummy = (DummyConnectionFactory) context.lookup("java:/eis/dummy");
         }
 
         @TearDown
@@ -119,34 +122,34 @@ public class ManagedConnectionPoolBenchmark {
     @Group
     public void testMethod(ThreadState state) {
          try{
-             if (state.ut != null) {
-                state.ut.begin();
+             if (state.transaction != null) {
+                state.transaction.begin();
              }
 
-             DummyConnection dc = state.dcf.getConnection();
+             DummyConnection dc = state.dummy.getConnection();
 
              // Do some work
              dc.doWork(false, state.random.nextInt());
 
              // Yeld!
-             dc.doYeld(true);
+             dc.doYeld(false);
 
-             // Wait some time (10ms average)
-             dc.doSleep(true, state.random.nextInt(20));
+             // Wait some time (5ms average)
+             dc.doSleep(true, state.random.nextInt(10));
 
              // Do some work
-             dc.doWork(false, state.random.nextInt());
+             dc.doWork(true, state.random.nextInt(1000 * 1000));
 
              dc.close();
 
-             if (state.ut != null) {
-                 state.ut.commit();
+             if (state.transaction != null) {
+                 state.transaction.commit();
              }
         } catch (Throwable t) {
              // t.printStackTrace();
              try {
-                 if (state.ut != null) {
-                     state.ut.rollback();
+                 if (state.transaction != null) {
+                     state.transaction.rollback();
                  }
              } catch (Throwable tr) {
                  System.out.println("tr.getMessage() = " + tr.getMessage());
@@ -154,24 +157,39 @@ public class ManagedConnectionPoolBenchmark {
         }
     }
 
-    // For running from IDE (Not working yet!)
+    // For running from IDE
     public static void main(String[] args) throws RunnerException {
         Options baseOpts = new OptionsBuilder()
+                .mode(Mode.Throughput)
+                .mode(Mode.AverageTime)
                 .warmupTime(TimeValue.seconds(1))
                 .measurementTime(TimeValue.seconds(10))
                 .warmupIterations(10)
                 .measurementIterations(10)
-                .forks(0)
-                .threads(50)
-                .jvmArgs("-Dironjacamar.mcp=org.jboss.jca.core.connectionmanager.pool.mcp.SemaphoreConcurrentLinkedQueueManagedConnectionPool")
-                .verbosity(VerboseMode.EXTRA)
+                .forks(1)
+                .threads(100)
+                .verbosity(VerboseMode.NORMAL)
                 .build();
 
-        Map<BenchmarkRecord, RunResult> runnerResults = new Runner(baseOpts).run();
+        Options salMCP = new OptionsBuilder()
+                .parent(baseOpts)
+                .jvmArgs("-Dironjacamar.mcp=org.jboss.jca.core.connectionmanager.pool.mcp.SemaphoreArrayListManagedConnectionPool")
+                .build();
 
-        for (Map.Entry<BenchmarkRecord, RunResult> entry : runnerResults.entrySet()) {
-            System.out.printf("Record = %s Result = %s\n", entry.getKey(), entry.getValue());
-        }
+        Map<BenchmarkRecord, RunResult> resultsSAL = new Runner(salMCP).run();
+
+        Options sclqMCP = new OptionsBuilder()
+                .parent(baseOpts)
+                .jvmArgs("-Dironjacamar.mcp=org.jboss.jca.core.connectionmanager.pool.mcp.SemaphoreConcurrentLinkedQueueManagedConnectionPool")
+                .build();
+
+        Map<BenchmarkRecord, RunResult> resultsSCLQ = new Runner(sclqMCP).run();
+
+        System.out.println("------------------");
+        System.out.println("\nSemaphoreArrayList");
+        new TextReportFormat(System.out, VerboseMode.NORMAL).endRun(resultsSAL);
+        System.out.println("\nSemaphoreConcurrentLinkedQueue");
+        new TextReportFormat(System.out, VerboseMode.NORMAL).endRun(resultsSAL);
     }
 
 }

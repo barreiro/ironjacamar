@@ -17,8 +17,8 @@ public class DummyConnectionImpl implements DummyConnection {
    public void doWork(boolean b, long amount) {
       if (b) {
          BlackHole.consumeCPU(amount);
+         mc.callMe();
       }
-      mc.callMe();
    }
 
    @Override
@@ -29,14 +29,16 @@ public class DummyConnectionImpl implements DummyConnection {
          } catch (InterruptedException e) {
             e.printStackTrace();
          }
+         mc.callMe();
       }
-      mc.callMe();
    }
 
    @Override
    public void doYeld(boolean b) {
-      Thread.yield();
-      mc.callMe();
+      if (b) {
+         Thread.yield();
+         mc.callMe();
+      }
    }
 
    public void close() {

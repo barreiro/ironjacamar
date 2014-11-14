@@ -48,9 +48,9 @@
   <bean name="ShortRunningThreadPool" class="org.jboss.threads.QueueExecutor">
     <constructor>
       <!-- Core threads -->
-      <parameter>20</parameter>
+      <parameter>5</parameter>
       <!-- Max threads -->
-      <parameter>100</parameter>
+      <parameter>5</parameter>
       <!-- 60 seconds keepalive -->
       <parameter>60</parameter>
       <parameter><inject bean="KeepAliveTimeUnit"/></parameter>
@@ -70,9 +70,9 @@
   <bean name="LongRunningThreadPool" class="org.jboss.threads.QueueExecutor">
     <constructor>
       <!-- Core threads -->
-      <parameter>20</parameter>
+      <parameter>5</parameter>
       <!-- Max threads -->
-      <parameter>100</parameter>
+      <parameter>5</parameter>
       <!-- 60 seconds keepalive -->
       <parameter>60</parameter>
       <parameter><inject bean="KeepAliveTimeUnit"/></parameter>
